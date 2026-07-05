@@ -36,11 +36,14 @@
   body.uncoloured .toneG{opacity:0 !important;}
 
   /* white line work beneath the colours: scroll-drawn via stroke-dashoffset
-     (pathLength=1); the "Show line" button lifts it above the paint */
+     (pathLength=1); the "Show line" button lifts it above the paint.
+     It fades out with the segment outlines at the end — once they're gone it
+     would peek through the hairline gaps between adjacent fills. */
   /* stroke sits well inside the 11px-traced colour segments so no white edge
      peeks out once the paint covers it */
   #lineG path{fill:none;stroke:var(--art-ink);stroke-linecap:round;stroke-linejoin:round;
     stroke-width:7;stroke-dasharray:1;stroke-dashoffset:1;}
+  body.uncoloured #lineG{opacity:1 !important;} /* bare-line view works even at the end */
   @media (prefers-reduced-motion: reduce){
     .toneG :is(path,rect,circle,polygon,ellipse){transition:none;}
   }
@@ -273,6 +276,7 @@
         if(lineRaised)art.appendChild(lineEl);
         else art.insertBefore(lineEl,art.querySelector(".toneG"));
         lb.textContent=lineRaised?"Hide line":"Show line";
+        update(); // re-apply scroll-driven opacity for the new state
       });
     }
     const HAS_LINE=linePaths.length>0;
@@ -337,6 +341,10 @@
       const segIn=clamp((p-SEG_A)/(SEG_B-SEG_A),0,1);
       const segOut=1-clamp((p-OUT_A)/(OUT_B-OUT_A),0,1);
       const strokeO=Math.min(segIn,segOut);
+
+      // the sketch fades with the outlines — they were masking the hairline
+      // gaps between fills where the white line would otherwise peek through
+      if(HAS_LINE)lineEl.style.opacity=lineRaised?1:segOut;
 
       let toneDone=0;
       for(let i=0;i<NT;i++){

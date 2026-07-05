@@ -315,8 +315,8 @@
     }
 
     /* ----- scroll choreography -----
-       line draws > segment outlines appear > fills arrive one by one >
-       outlines fade away for a clean finish */
+       line draws > segment outlines appear (and stay) > fills arrive one by
+       one > the sketch line fades away beneath the finished piece */
     const LINE_A=0.02,LINE_B=HAS_LINE?0.22:0.02;
     const SEG_A=HAS_LINE?0.24:0.02,SEG_B=SEG_A+0.08;
     const TONE_A=SEG_B+0.02,TONE_END=0.86;
@@ -337,13 +337,13 @@
         for(const el of linePaths)el.style.strokeDashoffset=1-lp;
       }
 
-      // segment outlines: in after the line, out once everything is painted
+      // segment outlines: in after the line, then they stay to the very end
       const segIn=clamp((p-SEG_A)/(SEG_B-SEG_A),0,1);
-      const segOut=1-clamp((p-OUT_A)/(OUT_B-OUT_A),0,1);
-      const strokeO=Math.min(segIn,segOut);
+      const strokeO=segIn;
 
-      // the sketch fades with the outlines — they were masking the hairline
-      // gaps between fills where the white line would otherwise peek through
+      // the sketch fades once everything is painted — fully covered by then,
+      // it would only peek through the hairline gaps between adjacent fills
+      const segOut=1-clamp((p-OUT_A)/(OUT_B-OUT_A),0,1);
       if(HAS_LINE)lineEl.style.opacity=lineRaised?1:segOut;
 
       let toneDone=0;

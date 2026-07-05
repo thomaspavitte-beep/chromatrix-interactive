@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#131313" />
+<title>Chromatrix &middot; Scroll to Colour</title>
+<style>
+  /* dark-mode variant of the shared demo tokens — the artwork wants a black page,
+     so ink/surfaces invert and the sketch line is paper-white */
+  :root{ --ink:#f2f3f5; --bg:#131313; --accent:#e4572e; --muted:#8f959d;
+    --art-ink:#fbfbf9;
+    --surface:#1d2023; --border:#3a3f45; --hover:#272b2f; --tile:#343a40;
+    --tone-1:#2d5747; --tone-2:#454546; --tone-3:#6e6e6e;
+    --tone-4:#969696; --tone-5:#c1c0bf; --tone-6:#eae9e9; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
+  #track{height:700vh;position:relative;}
+  #stage{position:sticky;top:0;height:100vh;height:100svh;display:flex;align-items:center;
+    justify-content:center;overflow:hidden;}
+  #art{width:min(92vw,calc(90svh * var(--ar,1)));display:block;}
+
+  /* tone fills: fade only, never transformed. They paint OVER the white sketch,
+     so body.uncoloured just lifts the paint off to reveal the line again.
+     The thin bg-black stroke is the segment-outline phase: fill-opacity and
+     stroke-opacity are scroll-driven separately per group. */
+  .toneG :is(path,rect,circle,polygon,ellipse){transition:fill .5s ease;
+    stroke:var(--bg);stroke-width:1;}
+  #toneG1 :is(path,rect,circle,polygon,ellipse){fill:var(--tone-1);}
+  #toneG2 :is(path,rect,circle,polygon,ellipse){fill:var(--tone-2);}
+  #toneG3 :is(path,rect,circle,polygon,ellipse){fill:var(--tone-3);}
+  #toneG4 :is(path,rect,circle,polygon,ellipse){fill:var(--tone-4);}
+  #toneG5 :is(path,rect,circle,polygon,ellipse){fill:var(--tone-5);}
+  #toneG6 :is(path,rect,circle,polygon,ellipse){fill:var(--tone-6);}
+  body.uncoloured .toneG{opacity:0 !important;}
+
+  /* white line work beneath the colours: scroll-drawn via stroke-dashoffset
+     (pathLength=1); the "Show line" button lifts it above the paint */
+  /* stroke sits well inside the 11px-traced colour segments so no white edge
+     peeks out once the paint covers it */
+  #lineG path{fill:none;stroke:var(--art-ink);stroke-linecap:round;stroke-linejoin:round;
+    stroke-width:7;stroke-dasharray:1;stroke-dashoffset:1;}
+  @media (prefers-reduced-motion: reduce){
+    .toneG :is(path,rect,circle,polygon,ellipse){transition:none;}
+  }
+
+  #bar{position:fixed;left:0;top:0;height:3px;width:0%;background:var(--accent);z-index:5;}
+  #hud{position:fixed;left:0;right:0;top:0;padding:16px 20px;display:flex;align-items:baseline;gap:14px;pointer-events:none;z-index:4;}
+  #title{font-size:15px;font-weight:700;}
+  #title span{font-weight:400;color:var(--muted);}
+  #credit{font-size:11px;color:var(--muted);}
+  #count{margin-left:auto;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600;color:var(--muted);white-space:nowrap;}
+  @media (max-width:600px){
+    #title span,#credit{display:none;}
+  }
+  #btns{position:fixed;right:20px;bottom:22px;z-index:6;display:flex;gap:8px;
+    flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 40px);}
+  #btns button{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--surface);
+    border:1px solid var(--border);border-radius:999px;padding:7px 14px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.3);white-space:nowrap;}
+  #btns button:hover{border-color:var(--accent);color:var(--accent);}
+  #hint{position:fixed;left:0;right:0;bottom:26px;text-align:center;font-size:13px;color:var(--muted);transition:opacity .4s;pointer-events:none;}
+  #done{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
+    padding:9px 18px;border-radius:999px;font-size:13px;font-weight:600;opacity:0;transition:opacity .5s;pointer-events:none;z-index:5;}
+  #done.show{opacity:1;}
+
+  /* artworks switcher (populated from art/manifest.js) */
+  #gallery{position:fixed;right:20px;bottom:64px;background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:8px;z-index:7;box-shadow:0 8px 28px rgba(0,0,0,.5);display:none;max-height:60vh;overflow:auto;
+    min-width:240px;max-width:calc(100vw - 40px);}
+  #gallery.open{display:block;}
+  .galItem{display:flex;gap:10px;align-items:center;padding:7px 9px;border-radius:10px;text-decoration:none;color:var(--ink);}
+  .galItem:hover{background:var(--hover);}
+  .galItem.current{outline:2px solid var(--accent);}
+  .galCover{width:34px;height:46px;border-radius:4px;background:var(--tile);flex:0 0 auto;display:flex;
+    align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--muted);overflow:hidden;}
+  .galCover img{width:100%;height:100%;object-fit:cover;display:block;}
+  .galTitle{font-size:13px;font-weight:700;}
+  .galBook{font-size:11px;color:var(--muted);}
+
+  /* book card shown at the completion moment */
+  #bookCard{position:fixed;left:50%;bottom:118px;transform:translateX(-50%);display:flex;gap:12px;align-items:center;
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px 14px;opacity:0;transition:opacity .5s;
+    pointer-events:none;z-index:5;box-shadow:0 4px 18px rgba(0,0,0,.4);}
+  #bookCard.show{opacity:1;pointer-events:auto;}
+  #bookCard .galCover{width:44px;height:60px;font-size:18px;}
+  .bcFrom{font-size:11px;color:var(--muted);}
+  .bcBook{font-size:13px;font-weight:700;max-width:240px;}
+  .bcBuy{font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;}
+  .bcBuy:hover{text-decoration:underline;}
+
+  /* colour panel */
+  #panel{position:fixed;right:20px;bottom:64px;background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    padding:12px;z-index:7;box-shadow:0 8px 28px rgba(0,0,0,.5);display:none;max-height:70vh;overflow:auto;
+    width:262px;max-width:calc(100vw - 40px);}
+  #panel.open{display:block;}
+  .pLabel{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:4px 4px 8px;}
+  .preset{display:flex;align-items:center;gap:10px;width:100%;padding:7px 9px;border:none;background:none;
+    border-radius:10px;cursor:pointer;font:inherit;font-size:13px;font-weight:600;color:var(--ink);text-align:left;}
+  .preset:hover{background:var(--hover);}
+  .preset.current{outline:2px solid var(--accent);}
+  .strip{display:flex;border-radius:5px;overflow:hidden;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1);}
+  .strip i{width:13px;height:20px;}
+  #panel hr{border:none;border-top:1px solid var(--hover);margin:10px 0;}
+  #wells{display:flex;gap:8px;padding:0 4px;}
+  .well{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--muted);}
+  .well input{width:30px;height:34px;padding:0;border:1px solid var(--border);border-radius:8px;background:var(--surface);cursor:pointer;}
+  .well input::-webkit-color-swatch-wrapper{padding:3px;}
+  .well input::-webkit-color-swatch{border:none;border-radius:5px;}
+  #toneTip{font-size:11px;color:var(--muted);margin:8px 4px 2px;}
+</style>
+</head>
+<body>
+  <div id="bar"></div>
+  <div id="hud">
+    <div id="title">Chromatrix <span>&middot; scroll to colour</span></div>
+    <div id="credit">Chromatrix &middot; by Thomas Pavitte</div>
+    <div id="count"></div>
+  </div>
+
+  <div id="track">
+    <div id="stage">
+      <svg id="art" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+
+  <div id="btns">
+    <button id="galBtn" style="display:none">Artworks</button>
+    <button id="colBtn">Colours</button>
+    <button id="whiteBtn">Uncoloured</button>
+    <button id="lineBtn" style="display:none">Show line</button>
+  </div>
+
+  <div id="gallery"></div>
+
+  <div id="panel">
+    <div class="pLabel">Palettes</div>
+    <div id="presets"></div>
+    <hr />
+    <div class="pLabel">Surprise me</div>
+    <div id="gens"></div>
+    <hr />
+    <div class="pLabel">Your colours</div>
+    <div id="wells"></div>
+    <div id="toneTip">Darkest &rarr; lightest works best.</div>
+  </div>
+
+  <div id="bookCard"></div>
+  <div id="hint">Scroll to reveal</div>
+  <div id="done">&#10003; Complete</div>
+
+<script>
+(function(){
+  if("scrollRestoration" in history) history.scrollRestoration="manual";
+  window.scrollTo(0,0);
+  window.addEventListener("load",()=>window.scrollTo(0,0));
+
+  const svgNS="http://www.w3.org/2000/svg";
+  const art=document.getElementById("art");
+  const bar=document.getElementById("bar");
+  const count=document.getElementById("count");
+  const hint=document.getElementById("hint");
+  const done=document.getElementById("done");
+  const bookCard=document.getElementById("bookCard");
+
+  /* ---------- palettes (tone 1 darkest ... tone 6 lightest) ---------- */
+  const PRESETS=[
+    {name:"Midnight",tones:["#0d1b2a","#3e5c76","#778da9","#a2d2ff","#bde0fe","#edf6ff"]},
+    {name:"Ember",   tones:["#0b090a","#540b0e","#9e2a2b","#e07a5f","#f2cc8f","#fff3b0"]},
+    {name:"Forest",  tones:["#242423","#386641","#6a994e","#a7c957","#dde5b6","#f1f8e9"]},
+    {name:"Desert",  tones:["#1a1a1d","#582f0e","#e09f3e","#f4a261","#e9c46a","#fefae0"]}
+  ];
+
+  /* random palette generator, ported from Chromatrix's colorUtils.ts */
+  function hslToHex(h,s,l){
+    const hue=((h%360)+360)%360, sat=s/100, light=l/100;
+    const a=sat*Math.min(light,1-light);
+    const f=n=>{
+      const k=(n+hue/30)%12;
+      const c=light-a*Math.max(Math.min(k-3,9-k,1),-1);
+      return Math.round(255*c).toString(16).padStart(2,"0");
+    };
+    return "#"+f(0)+f(8)+f(4);
+  }
+  function genPalette(mode,n){
+    const baseH=Math.floor(Math.random()*360);
+    const s=Math.floor(Math.random()*40)+40;
+    const darkestL=Math.floor(Math.random()*5)+4;    /* 4-8 */
+    const lightestL=Math.floor(Math.random()*11)+72; /* 72-82 */
+    const lStep=(lightestL-darkestL)/(n-1);
+    const hStep=mode==="vibrant"?(Math.random()*15+10):0;
+    const colors=[];
+    for(let i=0;i<n;i++)colors.push(hslToHex((baseH+hStep*i)%360,s,darkestL+lStep*i));
+    return colors;
+  }
+
+  /* ---------- SVG helpers ---------- */
+  async function loadSvg(url){
+    const res=await fetch(url);
+    if(!res.ok) throw new Error(url+" -> "+res.status);
+    return new DOMParser().parseFromString(await res.text(),"image/svg+xml").documentElement;
+  }
+
+  // The fill each group uses, resolved through the embedded .stN stylesheet —
+  // gives us the artwork's own palette for the "Original" preset.
+  function fillOf(g,classFill){
+    const shape=g.querySelector("[class],[fill]");
+    if(!shape)return null;
+    const cls=shape.getAttribute("class");
+    return (cls&&classFill[cls.split(/\s+/)[0]])||shape.getAttribute("fill");
+  }
+  function classFillMap(root){
+    const styleText=[...root.querySelectorAll("style")].map(s=>s.textContent).join("\n");
+    const map={};
+    for(const m of styleText.matchAll(/\.(st\d+)\s*{[^}]*fill:\s*(#[0-9a-fA-F]{3,6})/g))
+      map[m[1]]=m[2];
+    return map;
+  }
+
+  /* ---------- boot one artwork ---------- */
+  async function boot(entry,list){
+    const dir="art/"+entry.id+"/";
+    const coloursRoot=await loadSvg(dir+"colours.svg");
+    let lineRoot=null;
+    try{lineRoot=await loadSvg(dir+"line.svg");}catch(e){/* line work is optional */}
+
+    const vb=(coloursRoot.getAttribute("viewBox")||"0 0 756.9 756.9").split(/[\s,]+/).map(Number);
+    art.setAttribute("viewBox",vb.join(" "));
+    art.style.setProperty("--ar",vb[2]/vb[3]);
+
+    // tone groups: Illustrator layers "1".."6" export as id="_x31_".."_x36_",
+    // already ordered darkest -> lightest
+    let toneGroups=[];
+    for(let i=1;i<=6;i++){
+      const g=coloursRoot.querySelector('g[id="_x3'+i+'_"]');
+      if(g)toneGroups.push(g);
+    }
+    if(!toneGroups.length)
+      toneGroups=[...coloursRoot.children].filter(el=>el.tagName==="g");
+    toneGroups=toneGroups.slice(0,6);
+    const NT=toneGroups.length;
+
+    const classFill=classFillMap(coloursRoot);
+    const original=toneGroups.map((g,i)=>fillOf(g,classFill)||["#111418","#3a3f45","#666c73","#969ca3","#c4c9ce","#eceff2"][i]);
+
+    const styleEl=coloursRoot.querySelector("defs")||coloursRoot.querySelector("style");
+    if(styleEl)art.appendChild(styleEl); // keep .stN rules; our #toneGN rules out-rank them
+    toneGroups.forEach((g,i)=>{
+      g.setAttribute("id","toneG"+(i+1));
+      g.setAttribute("class","toneG");
+      g.style.fillOpacity=0;
+      g.style.strokeOpacity=0;
+      art.appendChild(g);
+    });
+
+    // white line work beneath the colours, drawn by scroll; the button lifts
+    // it above the paint to view the line work over the finished piece
+    let linePaths=[],lineEl=null,lineRaised=false;
+    const lb=document.getElementById("lineBtn");
+    if(lineRoot){
+      lineEl=document.createElementNS(svgNS,"g");
+      lineEl.setAttribute("id","lineG");
+      for(const p of [...lineRoot.querySelectorAll("path")]){
+        if(!p.getAttribute("pathLength"))p.setAttribute("pathLength","1");
+        p.removeAttribute("class");
+        lineEl.appendChild(p);
+        linePaths.push(p);
+      }
+      art.insertBefore(lineEl,art.querySelector(".toneG"));
+      lb.style.display="";
+      lb.addEventListener("click",()=>{
+        lineRaised=!lineRaised;
+        if(lineRaised)art.appendChild(lineEl);
+        else art.insertBefore(lineEl,art.querySelector(".toneG"));
+        lb.textContent=lineRaised?"Hide line":"Show line";
+      });
+    }
+    const HAS_LINE=linePaths.length>0;
+
+    // uncoloured view hides the paint, so lifting the line is moot — hide the toggle
+    document.getElementById("whiteBtn").addEventListener("click",e=>{
+      const off=document.body.classList.toggle("uncoloured");
+      e.target.textContent=off?"Show colours":"Uncoloured";
+      if(HAS_LINE)lb.style.display=off?"none":"";
+    });
+
+    // per-artwork HUD
+    const t=document.getElementById("title");
+    t.textContent=entry.title+" ";
+    const sp=document.createElement("span");sp.textContent="· scroll to colour";t.appendChild(sp);
+    document.getElementById("credit").textContent=entry.credit||"Chromatrix · by Thomas Pavitte";
+    document.title=entry.title+" · Chromatrix";
+    const words=["zero","one","two","three","four","five","six","seven","eight","nine"];
+    done.textContent="✓ Complete — "+(HAS_LINE?"one line, ":"")+(words[NT]||NT)+" fills";
+
+    // completion book card
+    const info=list.find(a=>a.id===entry.id);
+    if(info&&info.book){
+      bookCard.appendChild(coverEl(info));
+      const tx=document.createElement("div");
+      const l1=document.createElement("div");l1.className="bcFrom";l1.textContent="From the book";
+      const l2=document.createElement("div");l2.className="bcBook";l2.textContent=info.book;
+      tx.appendChild(l1);tx.appendChild(l2);
+      if(info.buy){
+        const a=document.createElement("a");a.className="bcBuy";a.href=info.buy;
+        a.target="_blank";a.rel="noopener";a.textContent="Get the book";
+        tx.appendChild(a);
+      }
+      bookCard.appendChild(tx);
+      bookCard.dataset.ready="1";
+    }
+
+    /* ----- scroll choreography -----
+       line draws > segment outlines appear > fills arrive one by one >
+       outlines fade away for a clean finish */
+    const LINE_A=0.02,LINE_B=HAS_LINE?0.22:0.02;
+    const SEG_A=HAS_LINE?0.24:0.02,SEG_B=SEG_A+0.08;
+    const TONE_A=SEG_B+0.02,TONE_END=0.86;
+    const OUT_A=0.86,OUT_B=0.91;
+    const TONE_W=(TONE_END-TONE_A)/NT;
+    const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+    let ticking=false;
+
+    function update(){
+      ticking=false;
+      const max=document.getElementById("track").offsetHeight-window.innerHeight;
+      const p=max>0?clamp(window.scrollY/max,0,1):0;
+      bar.style.width=(p*100).toFixed(2)+"%";
+
+      let lp=1;
+      if(HAS_LINE){
+        lp=clamp((p-LINE_A)/(LINE_B-LINE_A),0,1);
+        for(const el of linePaths)el.style.strokeDashoffset=1-lp;
+      }
+
+      // segment outlines: in after the line, out once everything is painted
+      const segIn=clamp((p-SEG_A)/(SEG_B-SEG_A),0,1);
+      const segOut=1-clamp((p-OUT_A)/(OUT_B-OUT_A),0,1);
+      const strokeO=Math.min(segIn,segOut);
+
+      let toneDone=0;
+      for(let i=0;i<NT;i++){
+        const a=TONE_A+i*TONE_W;
+        const o=clamp((p-a)/TONE_W,0,1);
+        toneGroups[i].style.fillOpacity=o;
+        toneGroups[i].style.strokeOpacity=strokeO;
+        if(o>=1)toneDone=i+1;
+      }
+
+      if(HAS_LINE&&p<SEG_A-0.005)count.textContent="Line "+Math.round(lp*100)+"%";
+      else if(p<TONE_A-0.005)count.textContent="Segments "+Math.round(segIn*100)+"%";
+      else count.textContent="Fill "+toneDone+" / "+NT;
+
+      done.classList.toggle("show",p>0.92);
+      bookCard.classList.toggle("show",p>0.92&&bookCard.dataset.ready==="1");
+      if(p>0.9){hint.textContent="Try your own colours ↘";hint.style.opacity=1;}
+      else hint.style.opacity=p>0.02?0:1;
+    }
+    addEventListener("scroll",()=>{if(!ticking){ticking=true;requestAnimationFrame(update);}},{passive:true});
+    addEventListener("resize",update);
+    update();
+
+    buildColourPanel(NT,original);
+  }
+
+  /* ---------- colours panel ---------- */
+  function buildColourPanel(NT,original){
+    const presetsEl=document.getElementById("presets");
+    const gensEl=document.getElementById("gens");
+    const wellsEl=document.getElementById("wells");
+    const wells=[];
+    const pick=(src,i)=>src[NT===1?src.length-1:Math.round(i*(src.length-1)/(NT-1))];
+    let tones=original.slice();
+
+    function applyTones(){
+      const rs=document.documentElement.style;
+      tones.forEach((c,i)=>rs.setProperty("--tone-"+(i+1),c));
+      wells.forEach((w,i)=>w.value=tones[i]);
+      [...presetsEl.children].forEach(btn=>{
+        btn.classList.toggle("current",btn.dataset.tones===tones.join());
+      });
+    }
+    function stripEl(cols){
+      const strip=document.createElement("span");
+      strip.className="strip";
+      for(const c of cols){const i=document.createElement("i");i.style.background=c;strip.appendChild(i);}
+      return strip;
+    }
+    const all=[{name:"Original",tones:original}].concat(PRESETS);
+    for(const pr of all){
+      const prTones=pr.tones.map((_,i)=>i).slice(0,NT).map(i=>pick(pr.tones,i));
+      const b=document.createElement("button");
+      b.className="preset";
+      b.dataset.tones=prTones.join();
+      b.appendChild(stripEl(prTones));
+      b.appendChild(document.createTextNode(pr.name));
+      b.addEventListener("click",()=>{tones=prTones.slice();applyTones();});
+      presetsEl.appendChild(b);
+    }
+    // generators: every click deals a fresh random palette
+    for(const g of [{mode:"cohesive",name:"Cohesive"},{mode:"vibrant",name:"Vibrant"}]){
+      const b=document.createElement("button");
+      b.className="preset";
+      const strip=stripEl(genPalette(g.mode,NT));
+      b.appendChild(strip);
+      b.appendChild(document.createTextNode(g.name));
+      b.addEventListener("click",()=>{
+        tones=genPalette(g.mode,NT);
+        [...strip.children].forEach((i,k)=>i.style.background=tones[k]);
+        applyTones();
+      });
+      gensEl.appendChild(b);
+    }
+    for(let i=0;i<NT;i++){
+      const d=document.createElement("label");
+      d.className="well";
+      const inp=document.createElement("input");
+      inp.type="color";inp.value=tones[i];
+      inp.addEventListener("input",()=>{tones[i]=inp.value;applyTones();});
+      d.appendChild(inp);
+      d.appendChild(document.createTextNode(i+1));
+      wellsEl.appendChild(d);wells.push(inp);
+    }
+    applyTones();
+  }
+
+  /* ---------- gallery / cover tiles ---------- */
+  function coverEl(a){
+    const d=document.createElement("div");d.className="galCover";
+    function letter(){
+      let n=a.book||a.title||"?";
+      if(n.indexOf(":")>-1)n=n.slice(n.lastIndexOf(":")+1);
+      d.textContent=n.trim().replace(/^The\s+/i,"").charAt(0).toUpperCase();
+    }
+    if(a.cover){
+      const img=document.createElement("img");img.src=a.cover;img.alt="";
+      img.onerror=function(){img.remove();letter();};
+      d.appendChild(img);
+    }else letter();
+    return d;
+  }
+
+  function buildGallery(list,cur){
+    const gal=document.getElementById("gallery");
+    list.forEach(a=>{
+      const item=document.createElement("a");
+      item.className="galItem"+(a.id===cur.id?" current":"");
+      item.href="?art="+encodeURIComponent(a.id);
+      item.appendChild(coverEl(a));
+      const tx=document.createElement("div");
+      const t1=document.createElement("div");t1.className="galTitle";t1.textContent=a.title;
+      const t2=document.createElement("div");t2.className="galBook";t2.textContent=a.book||"";
+      tx.appendChild(t1);tx.appendChild(t2);item.appendChild(tx);
+      gal.appendChild(item);
+    });
+    const btn=document.getElementById("galBtn");
+    btn.style.display="";
+    btn.addEventListener("click",e=>{e.stopPropagation();
+      document.getElementById("panel").classList.remove("open");
+      gal.classList.toggle("open");});
+    document.addEventListener("pointerdown",e=>{
+      if(!gal.contains(e.target)&&e.target!==btn)gal.classList.remove("open");});
+  }
+
+  /* ---------- buttons ---------- */
+  const panel=document.getElementById("panel");
+  const colBtn=document.getElementById("colBtn");
+  colBtn.addEventListener("click",e=>{e.stopPropagation();
+    document.getElementById("gallery").classList.remove("open");
+    panel.classList.toggle("open");});
+  document.addEventListener("pointerdown",e=>{
+    if(!panel.contains(e.target)&&e.target!==colBtn)panel.classList.remove("open");});
+
+  /* ---------- manifest + start ---------- */
+  const FALLBACK=[{id:"masterpiece-1",title:"Masterpiece 1",book:"Chromatrix"}];
+  function start(list){
+    const param=(new URLSearchParams(location.search).get("art")||"").toLowerCase();
+    const entry=(/^[a-z0-9-]+$/.test(param)&&list.find(a=>a.id===param))||list[0];
+    buildGallery(list,entry);
+    boot(entry,list).catch(err=>{
+      console.error(err);
+      count.textContent="Couldn't load artwork";
+    });
+  }
+  const s=document.createElement("script");
+  s.src="art/manifest.js";
+  s.onload=()=>start(Array.isArray(window.CHROMATRIX_MANIFEST)&&window.CHROMATRIX_MANIFEST.length?window.CHROMATRIX_MANIFEST:FALLBACK);
+  s.onerror=()=>start(FALLBACK);
+  document.head.appendChild(s);
+})();
+</script>
+</body>
+</html>

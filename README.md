@@ -9,6 +9,8 @@ and the outlines melt away to leave the finished piece.
 A calm dark-mode toy — no frameworks, no build step, one vanilla `index.html`
 with inline CSS + JS.
 
+**Live demo:** <https://thomaspavitte-beep.github.io/chromatrix-interactive/>
+
 ## Run locally
 
 Any static server works, e.g.:

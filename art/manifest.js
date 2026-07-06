@@ -18,5 +18,6 @@
 //   credit (optional) overrides the default "Chromatrix · by Thomas Pavitte"
 
 window.CHROMATRIX_MANIFEST = [
-  { id: "masterpiece-1", title: "Masterpiece 1", book: "Chromatrix" }
+  { id: "masterpiece-1", title: "Masterpiece 1", book: "Chromatrix Masterpieces",
+    cover: "covers/chromatrix.jpg" }
 ];

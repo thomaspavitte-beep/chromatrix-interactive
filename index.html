@@ -101,7 +101,8 @@
   .galItem{display:flex;gap:10px;align-items:center;padding:7px 9px;border-radius:10px;text-decoration:none;color:var(--ink);}
   .galItem:hover{background:var(--hover);}
   .galItem.current{outline:2px solid var(--accent);}
-  .galCover{width:34px;height:46px;border-radius:4px;background:var(--tile);flex:0 0 auto;display:flex;
+  /* square tiles — the Chromatrix cover is square (other books may be portrait) */
+  .galCover{width:46px;height:46px;border-radius:4px;background:var(--tile);flex:0 0 auto;display:flex;
     align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--muted);overflow:hidden;}
   .galCover img{width:100%;height:100%;object-fit:cover;display:block;}
   .galTitle{font-size:13px;font-weight:700;}
@@ -112,7 +113,7 @@
     background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:10px 14px;opacity:0;transition:opacity .5s;
     pointer-events:none;z-index:5;box-shadow:0 4px 18px rgba(0,0,0,.4);}
   #bookCard.show{opacity:1;pointer-events:auto;}
-  #bookCard .galCover{width:44px;height:60px;font-size:18px;}
+  #bookCard .galCover{width:60px;height:60px;font-size:18px;}
   .bcFrom{font-size:11px;color:var(--muted);}
   .bcBook{font-size:13px;font-weight:700;max-width:240px;}
   .bcBuy{font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;}

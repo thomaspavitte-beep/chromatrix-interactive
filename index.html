@@ -50,6 +50,22 @@
   #ghostG{opacity:.1;}
   #ghostG path{fill:none;stroke:var(--art-ink);stroke-linecap:round;stroke-linejoin:round;
     stroke-width:7;}
+
+  /* "from a distance" mini: a live <use> mirror of the artwork, bottom-left.
+     Appears once colouring starts; click toggles its size; fades away during
+     the step-back finale when the big artwork becomes the distance view. */
+  #mini{position:fixed;left:20px;bottom:22px;width:140px;z-index:4;cursor:pointer;
+    opacity:0;pointer-events:none;transition:opacity .5s,width .3s ease;}
+  #mini.show{opacity:1;pointer-events:auto;}
+  #mini.big{width:280px;}
+  #miniSvg{display:block;width:100%;height:auto;background:var(--bg);
+    border:1px solid var(--border);border-radius:10px;}
+  #miniLabel{font-size:11px;color:var(--muted);text-align:center;margin-top:5px;}
+  @media (max-width:600px){
+    #mini{width:92px;left:16px;bottom:60px;}
+    #mini.big{width:180px;}
+    #miniLabel{display:none;}
+  }
   @media (prefers-reduced-motion: reduce){
     .toneG :is(path,rect,circle,polygon,ellipse){transition:none;}
   }
@@ -154,6 +170,11 @@
     <div id="toneTip">Darkest &rarr; lightest works best.</div>
   </div>
 
+  <div id="mini" title="How it looks from a distance">
+    <svg id="miniSvg" xmlns="http://www.w3.org/2000/svg"><use href="#artRoot"/></svg>
+    <div id="miniLabel">from a distance</div>
+  </div>
+
   <div id="bookCard"></div>
   <div id="hint">Scroll down to complete the drawing</div>
   <div id="done">&#10003; Complete</div>
@@ -171,6 +192,8 @@
   const hint=document.getElementById("hint");
   const done=document.getElementById("done");
   const bookCard=document.getElementById("bookCard");
+  const mini=document.getElementById("mini");
+  mini.addEventListener("click",()=>mini.classList.toggle("big"));
 
   /* ---------- palettes (tone 1 darkest ... tone 6 lightest) ---------- */
   /* duotone ramps: strict dark->light value ladder, hue interpolated between
@@ -246,6 +269,12 @@
     art.setAttribute("viewBox",vb.join(" "));
     art.style.setProperty("--ar",vb[2]/vb[3]);
 
+    // everything lives in one group so the corner mini can <use> it live
+    const artRoot=document.createElementNS(svgNS,"g");
+    artRoot.setAttribute("id","artRoot");
+    art.appendChild(artRoot);
+    document.getElementById("miniSvg").setAttribute("viewBox",vb.join(" "));
+
     // tone groups: Illustrator layers "1".."6" export as id="_x31_".."_x36_",
     // already ordered darkest -> lightest
     let toneGroups=[];
@@ -262,13 +291,13 @@
     const original=toneGroups.map((g,i)=>fillOf(g,classFill)||["#111418","#3a3f45","#666c73","#969ca3","#c4c9ce","#eceff2"][i]);
 
     const styleEl=coloursRoot.querySelector("defs")||coloursRoot.querySelector("style");
-    if(styleEl)art.appendChild(styleEl); // keep .stN rules; our #toneGN rules out-rank them
+    if(styleEl)artRoot.appendChild(styleEl); // keep .stN rules; our #toneGN rules out-rank them
     toneGroups.forEach((g,i)=>{
       g.setAttribute("id","toneG"+(i+1));
       g.setAttribute("class","toneG");
       g.style.fillOpacity=0;
       g.style.strokeOpacity=0;
-      art.appendChild(g);
+      artRoot.appendChild(g);
     });
 
     // white line work beneath the colours, drawn by scroll; the button lifts
@@ -287,13 +316,13 @@
         lineEl.appendChild(p);
         linePaths.push(p);
       }
-      art.insertBefore(ghostEl,art.querySelector(".toneG"));
-      art.insertBefore(lineEl,art.querySelector(".toneG"));
+      artRoot.insertBefore(ghostEl,artRoot.querySelector(".toneG"));
+      artRoot.insertBefore(lineEl,artRoot.querySelector(".toneG"));
       lb.style.display="";
       lb.addEventListener("click",()=>{
         lineRaised=!lineRaised;
-        if(lineRaised)art.appendChild(lineEl);
-        else art.insertBefore(lineEl,art.querySelector(".toneG"));
+        if(lineRaised)artRoot.appendChild(lineEl);
+        else artRoot.insertBefore(lineEl,artRoot.querySelector(".toneG"));
         lb.textContent=lineRaised?"Hide line":"Show line";
         update(); // re-apply scroll-driven opacity for the new state
       });
@@ -340,6 +369,7 @@
     const SEG_A=HAS_LINE?0.24:0.02,SEG_B=SEG_A+0.08;
     const TONE_A=SEG_B+0.02,TONE_END=0.86;
     const OUT_A=0.86,OUT_B=0.91;
+    const SHRINK_A=0.92,SHRINK_B=0.99; /* step-back finale */
     const TONE_W=(TONE_END-TONE_A)/NT;
     const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
     let ticking=false;
@@ -377,6 +407,12 @@
       if(HAS_LINE&&p<SEG_A-0.005)count.textContent="Line "+Math.round(lp*100)+"%";
       else if(p<TONE_A-0.005)count.textContent="Segments "+Math.round(segIn*100)+"%";
       else count.textContent="Fill "+toneDone+" / "+NT;
+
+      // step-back finale: the finished piece scales down to distance size,
+      // and the corner mini bows out — the big artwork is the distance view now
+      const shrink=clamp((p-SHRINK_A)/(SHRINK_B-SHRINK_A),0,1);
+      art.style.transform=shrink>0?"scale("+(1-shrink*0.62).toFixed(4)+")":"";
+      mini.classList.toggle("show",p>TONE_A&&p<SHRINK_A);
 
       done.classList.toggle("show",p>0.92);
       bookCard.classList.toggle("show",p>0.92&&bookCard.dataset.ready==="1");

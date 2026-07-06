@@ -242,22 +242,6 @@
     return new DOMParser().parseFromString(await res.text(),"image/svg+xml").documentElement;
   }
 
-  // The fill each group uses, resolved through the embedded .stN stylesheet —
-  // gives us the artwork's own palette for the "Original" preset.
-  function fillOf(g,classFill){
-    const shape=g.querySelector("[class],[fill]");
-    if(!shape)return null;
-    const cls=shape.getAttribute("class");
-    return (cls&&classFill[cls.split(/\s+/)[0]])||shape.getAttribute("fill");
-  }
-  function classFillMap(root){
-    const styleText=[...root.querySelectorAll("style")].map(s=>s.textContent).join("\n");
-    const map={};
-    for(const m of styleText.matchAll(/\.(st\d+)\s*{[^}]*fill:\s*(#[0-9a-fA-F]{3,6})/g))
-      map[m[1]]=m[2];
-    return map;
-  }
-
   /* ---------- boot one artwork ---------- */
   async function boot(entry,list){
     const dir="art/"+entry.id+"/";
@@ -286,9 +270,6 @@
       toneGroups=[...coloursRoot.children].filter(el=>el.tagName==="g");
     toneGroups=toneGroups.slice(0,6);
     const NT=toneGroups.length;
-
-    const classFill=classFillMap(coloursRoot);
-    const original=toneGroups.map((g,i)=>fillOf(g,classFill)||["#111418","#3a3f45","#666c73","#969ca3","#c4c9ce","#eceff2"][i]);
 
     const styleEl=coloursRoot.querySelector("defs")||coloursRoot.querySelector("style");
     if(styleEl)artRoot.appendChild(styleEl); // keep .stN rules; our #toneGN rules out-rank them
@@ -426,17 +407,17 @@
     addEventListener("resize",update);
     update();
 
-    buildColourPanel(NT,original);
+    buildColourPanel(NT);
   }
 
   /* ---------- colours panel ---------- */
-  function buildColourPanel(NT,original){
+  function buildColourPanel(NT){
     const presetsEl=document.getElementById("presets");
     const gensEl=document.getElementById("gens");
     const wellsEl=document.getElementById("wells");
     const wells=[];
     const pick=(src,i)=>src[NT===1?src.length-1:Math.round(i*(src.length-1)/(NT-1))];
-    // default to the first curated preset (Twilight); Original stays a click away
+    // default to the first curated preset (Twilight)
     let tones=PRESETS[0].tones.map((_,i)=>i).slice(0,NT).map(i=>pick(PRESETS[0].tones,i));
 
     function applyTones(){
@@ -453,8 +434,7 @@
       for(const c of cols){const i=document.createElement("i");i.style.background=c;strip.appendChild(i);}
       return strip;
     }
-    const all=[{name:"Original",tones:original}].concat(PRESETS);
-    for(const pr of all){
+    for(const pr of PRESETS){
       const prTones=pr.tones.map((_,i)=>i).slice(0,NT).map(i=>pick(pr.tones,i));
       const b=document.createElement("button");
       b.className="preset";

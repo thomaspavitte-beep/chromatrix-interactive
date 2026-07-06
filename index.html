@@ -497,6 +497,8 @@
   }
 
   function buildGallery(list,cur){
+    // only offer the switcher once there's more than one artwork to switch to
+    if(list.length<2)return;
     const gal=document.getElementById("gallery");
     list.forEach(a=>{
       const item=document.createElement("a");

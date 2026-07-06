@@ -84,6 +84,10 @@
   #btns button{font:inherit;font-size:13px;font-weight:600;color:var(--ink);background:var(--surface);
     border:1px solid var(--border);border-radius:999px;padding:7px 14px;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.3);white-space:nowrap;}
   #btns button:hover{border-color:var(--accent);color:var(--accent);}
+  /* intro statement over the ghost line; scroll-faded as the line draws */
+  #intro{position:fixed;left:0;right:0;top:50%;transform:translateY(-50%);text-align:center;
+    font-size:clamp(20px,3.6vw,34px);font-weight:700;letter-spacing:-.01em;color:var(--ink);
+    padding:0 24px;pointer-events:none;z-index:4;}
   #hint{position:fixed;left:0;right:0;bottom:26px;text-align:center;font-size:13px;color:var(--muted);transition:opacity .4s;pointer-events:none;}
   #done{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:var(--ink);color:var(--bg);
     padding:9px 18px;border-radius:999px;font-size:13px;font-weight:600;opacity:0;transition:opacity .5s;pointer-events:none;z-index:5;}
@@ -175,6 +179,7 @@
     <div id="miniLabel">from a distance</div>
   </div>
 
+  <div id="intro">Masterpieces made from one continuous line</div>
   <div id="bookCard"></div>
   <div id="hint">Scroll down to complete the drawing</div>
   <div id="done">&#10003; Complete</div>
@@ -366,6 +371,9 @@
         lp=clamp((p-LINE_A)/(LINE_B-LINE_A),0,1);
         for(const el of linePaths)el.style.strokeDashoffset=1-lp;
       }
+
+      // intro statement bows out as the line starts to draw
+      document.getElementById("intro").style.opacity=1-clamp((p-LINE_A)/0.06,0,1);
 
       // segment outlines: in after the line, then they stay to the very end
       const segIn=clamp((p-SEG_A)/(SEG_B-SEG_A),0,1);

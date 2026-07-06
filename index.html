@@ -11,8 +11,8 @@
   :root{ --ink:#f2f3f5; --bg:#131313; --accent:#e4572e; --muted:#8f959d;
     --art-ink:#fbfbf9;
     --surface:#1d2023; --border:#3a3f45; --hover:#272b2f; --tile:#343a40;
-    --tone-1:#2d5747; --tone-2:#454546; --tone-3:#6e6e6e;
-    --tone-4:#969696; --tone-5:#c1c0bf; --tone-6:#eae9e9; }
+    --tone-1:#0c0821; --tone-2:#46125e; --tone-3:#a9198c;
+    --tone-4:#e63365; --tone-5:#eb9c84; --tone-6:#f9edc7; }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;}
@@ -173,11 +173,17 @@
   const bookCard=document.getElementById("bookCard");
 
   /* ---------- palettes (tone 1 darkest ... tone 6 lightest) ---------- */
+  /* duotone ramps: strict dark->light value ladder, hue interpolated between
+     two anchors (L 8/22/38/55/72/88, S 62/68/74/78/72/82). First entry is the
+     default palette on load. */
   const PRESETS=[
-    {name:"Midnight",tones:["#0d1b2a","#3e5c76","#778da9","#a2d2ff","#bde0fe","#edf6ff"]},
+    {name:"Twilight",tones:["#0c0821","#46125e","#a9198c","#e63365","#eb9c84","#f9edc7"]},
     {name:"Ember",   tones:["#0b090a","#540b0e","#9e2a2b","#e07a5f","#f2cc8f","#fff3b0"]},
-    {name:"Forest",  tones:["#242423","#386641","#6a994e","#a7c957","#dde5b6","#f1f8e9"]},
-    {name:"Desert",  tones:["#1a1a1d","#582f0e","#e09f3e","#f4a261","#e9c46a","#fefae0"]}
+    {name:"Peacock", tones:["#081b21","#12295e","#2f19a9","#9e33e6","#eb84e6","#f9c7e0"]},
+    {name:"Orchid",  tones:["#1d0821","#2b125e","#1931a9","#33aae6","#84ebda","#c7f9d8"]},
+    {name:"Reef",    tones:["#081021","#20125e","#7e19a9","#e633bf","#eb84a0","#f9d4c7"]},
+    {name:"Meadow",  tones:["#082119","#125e29","#23a919","#80e633","#d6eb84","#f9f1c7"]},
+    {name:"Berry",   tones:["#210819","#5e1233","#a91936","#e63933","#eba084","#f9e0c7"]}
   ];
 
   /* random palette generator, ported from Chromatrix's colorUtils.ts */
@@ -193,13 +199,16 @@
   }
   function genPalette(mode,n){
     const baseH=Math.floor(Math.random()*360);
-    const s=Math.floor(Math.random()*40)+40;
+    const s=mode==="vibrant"?Math.floor(Math.random()*30)+50   /* 50-79 */
+                            :Math.floor(Math.random()*40)+40;  /* 40-79 */
     const darkestL=Math.floor(Math.random()*5)+4;    /* 4-8 */
     const lightestL=Math.floor(Math.random()*11)+72; /* 72-82 */
     const lStep=(lightestL-darkestL)/(n-1);
-    const hStep=mode==="vibrant"?(Math.random()*15+10):0;
+    // vibrant = random duotone: swing 60-180 degrees to a second anchor hue
+    const hSpan=mode==="vibrant"?(Math.random()*120+60)*(Math.random()<0.5?-1:1):0;
+    const hStep=n>1?hSpan/(n-1):0;
     const colors=[];
-    for(let i=0;i<n;i++)colors.push(hslToHex((baseH+hStep*i)%360,s,darkestL+lStep*i));
+    for(let i=0;i<n;i++)colors.push(hslToHex(baseH+hStep*i,s,darkestL+lStep*i));
     return colors;
   }
 
@@ -391,7 +400,8 @@
     const wellsEl=document.getElementById("wells");
     const wells=[];
     const pick=(src,i)=>src[NT===1?src.length-1:Math.round(i*(src.length-1)/(NT-1))];
-    let tones=original.slice();
+    // default to the first curated preset (Twilight); Original stays a click away
+    let tones=PRESETS[0].tones.map((_,i)=>i).slice(0,NT).map(i=>pick(PRESETS[0].tones,i));
 
     function applyTones(){
       const rs=document.documentElement.style;

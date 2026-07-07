@@ -62,9 +62,7 @@
     border:1px solid var(--border);border-radius:10px;}
   #miniLabel{font-size:11px;color:var(--muted);text-align:center;margin-top:5px;}
   @media (max-width:600px){
-    #mini{width:92px;left:16px;bottom:60px;}
-    #mini.big{width:180px;}
-    #miniLabel{display:none;}
+    #mini{display:none;} /* corner mini hidden on mobile; the step-back finale still shows it small */
   }
   @media (prefers-reduced-motion: reduce){
     .toneG :is(path,rect,circle,polygon,ellipse){transition:none;}
